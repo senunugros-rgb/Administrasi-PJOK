@@ -1,39 +1,54 @@
 ```
-# Compiled and build artifacts
+# Google Apps Script specific ignores
+**/.gs
+!teacher-generator-pjok/*.gs
+
+# Compiled/build artifacts
 *.pyc
-__pycache__/
+*.class
+*.o
+*.obj
+*.out
+*.exe
+*.dll
+*.so
+*.a
 
 # Dependencies
-.venv/
-venv/
 node_modules/
+venv/
+.venv/
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+target/
+.gradle/
 
-# Logs and temp files
-*.log
-*.tmp
+# Build/dist folders
+dist/
+build/
+coverage/
+htmlcov/
+*.egg-info/
+
+# IDE/Editor files
+.vscode/
+.idea/
 *.swp
+*.swo
+*.tmp
 
-# Environment
+# System files
+.DS_Store
+Thumbs.db
 .env
 .env.local
 *.env.*
 
-# Editors
-.vscode/
-.idea/
+# Logs
+*.log
 
-# Coverage reports
-coverage/
-htmlcov/
-.coverage
-
-# Distribution artifacts
-dist/
-build/
-target/
-*.egg-info/
-
-# Compression files
+# Compressed files
 *.zip
 *.gz
 *.tar
