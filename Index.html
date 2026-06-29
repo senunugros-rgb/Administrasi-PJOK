@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <title>GerakPintar - Admin PJOK</title>
+  <!-- Tailwind CSS untuk Styling Cepat & Modern -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js untuk Analitik -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+    .loader {
+      border: 4px solid #f3f3f3; border-top: 4px solid #4F46E5; border-radius: 50%;
+      width: 30px; height: 30px; animation: spin 1s linear infinite; display: none;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .card-hover:hover { transform: translateY(-2px); transition: all 0.2s; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+  </style>
+</head>
+<body class="text-gray-800">
+
+  <!-- Sidebar & Layout Utama -->
+  <div class="flex h-screen overflow-hidden">
+    
+    <!-- Sidebar -->
+    <aside class="w-64 bg-indigo-900 text-white hidden md:flex flex-col">
+      <div class="p-6 text-center border-b border-indigo-800">
+        <h1 class="text-2xl font-bold tracking-wider">Gerak<span class="text-indigo-400">Pintar</span></h1>
+        <p class="text-xs text-indigo-300 mt-1">Admin PJOK Kurikulum Merdeka</p>
+      </div>
+      <nav class="flex-1 p-4 space-y-2">
+        <a href="#" onclick="showPage('dashboard')" class="block p-3 rounded-lg bg-indigo-800 hover:bg-indigo-700 transition">📊 Dashboard</a>
+        <a href="#" onclick="showPage('modul')" class="block p-3 rounded-lg hover:bg-indigo-800 transition">📝 Generator Modul AI</a>
+        <a href="#" onclick="showPage('siswa')" class="block p-3 rounded-lg hover:bg-indigo-800 transition">👥 Data Siswa</a>
+        <a href="#" onclick="showPage('asesmen')" class="block p-3 rounded-lg hover:bg-indigo-800 transition">🏆 Asesmen & Nilai</a>
+      </nav>
+      <div class="p-4 border-t border-indigo-800 text-xs text-center text-indigo-400">
+        v1.0.0 &copy; 2024 Sekolah Dasar
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto p-4 md:p-8 relative">
+      
+      <!-- Header Mobile -->
+      <div class="md:hidden mb-6 flex justify-between items-center">
+        <h1 class="text-xl font-bold text-indigo-900">GerakPintar</h1>
+        <button class="text-gray-600 focus:outline-none">☰</button>
+      </div>
+
+      <!-- PAGE: DASHBOARD -->
+      <section id="page-dashboard" class="space-y-6">
+        <header class="mb-6">
+          <h2 class="text-3xl font-bold text-gray-800">Dashboard Overview</h2>
+          <p class="text-gray-500">Ringkasan aktivitas pembelajaran PJOK hari ini.</p>
+        </header>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6" id="stats-container">
+          <!-- Loaded via JS -->
+          <div class="bg-white p-6 rounded-xl shadow-sm card-hover">
+            <div class="text-gray-500 text-sm font-medium">Total Siswa</div>
+            <div class="text-3xl font-bold text-indigo-600 mt-2" id="stat-siswa">-</div>
+          </div>
+          <div class="bg-white p-6 rounded-xl shadow-sm card-hover">
+            <div class="text-gray-500 text-sm font-medium">Modul Ajar</div>
+            <div class="text-3xl font-bold text-emerald-600 mt-2" id="stat-modul">-</div>
+          </div>
+          <div class="bg-white p-6 rounded-xl shadow-sm card-hover">
+            <div class="text-gray-500 text-sm font-medium">Kelas Aktif</div>
+            <div class="text-3xl font-bold text-orange-600 mt-2">6</div>
+          </div>
+          <div class="bg-white p-6 rounded-xl shadow-sm card-hover">
+            <div class="text-gray-500 text-sm font-medium">Rata-rata Nilai</div>
+            <div class="text-3xl font-bold text-blue-600 mt-2">78.5</div>
+          </div>
+        </div>
+
+        <!-- Charts & Activity -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="bg-white p-6 rounded-xl shadow-sm lg:col-span-2">
+            <h3 class="font-bold text-lg mb-4">Analitik Keterampilan Motorik (Contoh)</h3>
+            <canvas id="motorikChart"></canvas>
+          </div>
+          <div class="bg-white p-6 rounded-xl shadow-sm">
+            <h3 class="font-bold text-lg mb-4">Aktivitas Terbaru</h3>
+            <ul class="space-y-4" id="activity-log">
+              <li class="text-sm text-gray-500 italic">Memuat data...</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- PAGE: GENERATOR MODUL AI -->
+      <section id="page-modul" class="hidden space-y-6">
+        <header class="mb-6">
+          <h2 class="text-3xl font-bold text-gray-800">Generator Modul Ajar AI</h2>
+          <p class="text-gray-500">Buat rencana pembelajaran otomatis sesuai Kurikulum Merdeka.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Form Input -->
+          <div class="bg-white p-6 rounded-xl shadow-sm lg:col-span-1 h-fit">
+            <form id="form-generate" onsubmit="handleGenerate(event)" class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Topik / Materi</label>
+                <input type="text" id="inp-topik" placeholder="Cth: Lari Jarak Pendek" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 p-2 border" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Kelas</label>
+                <select id="inp-kelas" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 p-2 border">
+                  <option>1 SD</option><option>2 SD</option><option>3 SD</option>
+                  <option>4 SD</option><option>5 SD</option><option>6 SD</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Alokasi Waktu</label>
+                <input type="text" id="inp-waktu" placeholder="Cth: 2 x 35 Menit" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 p-2 border" required>
+              </div>
+              <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                ✨ Generate dengan AI
+              </button>
+            </form>
+            <div id="loading-ai" class="hidden mt-4 text-center">
+              <div class="loader mx-auto"></div>
+              <p class="text-xs text-gray-500 mt-2">AI sedang merancang modul...</p>
+            </div>
+          </div>
+
+          <!-- Hasil Output -->
+          <div class="bg-white p-6 rounded-xl shadow-sm lg:col-span-2 min-h-[400px]">
+            <div id="result-placeholder" class="h-full flex flex-col items-center justify-center text-gray-400">
+              <svg class="w-16 h-16 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+              <p>Hasil generate akan muncul di sini</p>
+            </div>
+            
+            <div id="result-content" class="hidden space-y-4">
+              <div class="flex justify-between items-start">
+                <h3 class="text-xl font-bold text-indigo-900" id="res-topik">Judul Modul</h3>
+                <button onclick="saveModul()" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">💾 Simpan ke Database</button>
+              </div>
+              
+              <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
+                <h4 class="font-bold text-indigo-800 text-sm uppercase">Tujuan Pembelajaran</h4>
+                <p id="res-tujuan" class="text-gray-700 mt-1"></p>
+              </div>
+
+              <div>
+                <h4 class="font-bold text-gray-800 text-sm uppercase mb-2">Langkah Kegiatan</h4>
+                <ul id="res-kegiatan" class="list-disc pl-5 space-y-1 text-gray-700"></ul>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-gray-50 p-4 rounded-lg">
+                  <h4 class="font-bold text-gray-800 text-sm uppercase">Asesmen Formatif</h4>
+                  <p id="res-asesmen" class="text-gray-600 text-sm mt-1"></p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                  <h4 class="font-bold text-gray-800 text-sm uppercase">Sarana & Prasarana</h4>
+                  <ul id="res-sarana" class="list-disc pl-5 text-gray-600 text-sm mt-1"></ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Placeholder Pages -->
+      <section id="page-siswa" class="hidden"><h2 class="text-2xl font-bold">Data Siswa (Coming Soon)</h2></section>
+      <section id="page-asesmen" class="hidden"><h2 class="text-2xl font-bold">Asesmen & Nilai (Coming Soon)</h2></section>
+
+    </main>
+  </div>
+
+  <script>
+    // State Global untuk menyimpan hasil AI sementara
+    let currentGeneratedModul = null;
+
+    // Navigasi Sederhana
+    function showPage(pageId) {
+      document.querySelectorAll('section').forEach(el => el.classList.add('hidden'));
+      document.getElementById('page-' + pageId).classList.remove('hidden');
+      
+      // Update active state sidebar (simple implementation)
+      if(pageId === 'dashboard') loadDashboard();
+    }
+
+    // Load Dashboard Data
+    function loadDashboard() {
+      google.script.run.withSuccessHandler(renderDashboard).getDashboardData();
+    }
+
+    function renderDashboard(response) {
+      if (!response.success) return console.error(response.error);
+      const data = response.data;
+
+      document.getElementById('stat-siswa').innerText = data.totalSiswa;
+      document.getElementById('stat-modul').innerText = data.totalModul;
+
+      const activityList = document.getElementById('activity-log');
+      activityList.innerHTML = '';
+      data.recentActivity.forEach(act => {
+        const li = document.createElement('li');
+        li.className = "border-b border-gray-100 pb-2";
+        li.innerHTML = `<div class="font-medium text-gray-800">${act.action}</div><div class="text-xs text-gray-500">${act.time} oleh ${act.user}</div>`;
+        activityList.appendChild(li);
+      });
+
+      // Render Chart Dummy
+      const ctx = document.getElementById('motorikChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Lari 50m', 'Loncat Jauh', 'Renang', 'Senam Lantai', 'Sepak Bola'],
+          datasets: [{
+            label: 'Rata-rata Nilai Kelas',
+            data: [75, 82, 68, 88, 79],
+            backgroundColor: '#4F46E5',
+            borderRadius: 5
+          }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } } }
+      });
+    }
+
+    // Handle AI Generation
+    function handleGenerate(e) {
+      e.preventDefault();
+      const topik = document.getElementById('inp-topik').value;
+      const kelas = document.getElementById('inp-kelas').value;
+      const waktu = document.getElementById('inp-waktu').value;
+
+      document.getElementById('loading-ai').classList.remove('hidden');
+      document.getElementById('result-placeholder').classList.add('hidden');
+      document.getElementById('result-content').classList.add('hidden');
+
+      google.script.run
+        .withSuccessHandler(onAiSuccess)
+        .withFailureHandler(onAiError)
+        .generateModulAjarAI(topik, kelas, waktu);
+    }
+
+    function onAiSuccess(data) {
+      document.getElementById('loading-ai').classList.add('hidden');
+      document.getElementById('result-content').classList.remove('hidden');
+      
+      currentGeneratedModul = {
+        topik: document.getElementById('inp-topik').value,
+        kelas: document.getElementById('inp-kelas').value,
+        ...data
+      };
+
+      // Populate UI
+      document.getElementById('res-topik').innerText = `Modul: ${currentGeneratedModul.topik} (${currentGeneratedModul.kelas})`;
+      document.getElementById('res-tujuan').innerText = data.tujuanPembelajaran;
+      
+      const kegiatanList = document.getElementById('res-kegiatan');
+      kegiatanList.innerHTML = '';
+      data.langkahKegiatan.forEach(k => {
+        const li = document.createElement('li');
+        li.innerText = k;
+        kegiatanList.appendChild(li);
+      });
+
+      document.getElementById('res-asesmen').innerText = data.asesmenFormatif;
+      
+      const saranaList = document.getElementById('res-sarana');
+      saranaList.innerHTML = '';
+      data.saranaPrasarana.forEach(s => {
+        const li = document.createElement('li');
+        li.innerText = s;
+        saranaList.appendChild(li);
+      });
+    }
+
+    function onAiError(error) {
+      document.getElementById('loading-ai').classList.add('hidden');
+      alert('Terjadi kesalahan pada AI: ' + error.message);
+    }
+
+    function saveModul() {
+      if (!currentGeneratedModul) return;
+      
+      const btn = document.querySelector('button[onclick="saveModul()"]');
+      const originalText = btn.innerText;
+      btn.innerText = 'Menyimpan...';
+      btn.disabled = true;
+
+      google.script.run
+        .withSuccessHandler((res) => {
+          alert(res.message);
+          btn.innerText = originalText;
+          btn.disabled = false;
+          if(res.success) showPage('dashboard'); // Redirect or refresh
+        })
+        .saveModulAjarToSheet(currentGeneratedModul);
+    }
+
+    // Init
+    window.onload = function() {
+      loadDashboard();
+    };
+  </script>
+</body>
+</html>
