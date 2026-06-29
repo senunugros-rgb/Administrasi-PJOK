@@ -1,0 +1,1016 @@
+/* ========================================
+   TEACHER GENERATOR - MAIN JAVASCRIPT
+   PJOK SD - Application Logic
+   ======================================== */
+
+// Global State
+const AppState = {
+  currentUser: null,
+  currentPage: 'dashboard',
+  theme: 'light',
+  isLoading: false,
+  data: {}
+};
+
+// ========================================
+// INITIALIZATION
+// ========================================
+
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('Teacher Generator PJOK SD - Initializing...');
+  
+  // Check if already logged in
+  checkAuth();
+  
+  // Initialize theme
+  initTheme();
+  
+  // Setup event listeners
+  setupEventListeners();
+});
+
+// ========================================
+// AUTHENTICATION
+// ========================================
+
+function checkAuth() {
+  showLoading('Memeriksa autentikasi...', 10);
+  
+  google.script.run
+    .withSuccessHandler(function(isAuthenticated) {
+      hideLoading();
+      
+      if (isAuthenticated) {
+        getCurrentUser();
+      } else {
+        showLoginModal();
+      }
+    })
+    .withFailureHandler(handleError)
+    .checkAuthentication();
+}
+
+function getCurrentUser() {
+  google.script.run
+    .withSuccessHandler(function(user) {
+      AppState.currentUser = user;
+      initializeApp();
+    })
+    .withFailureHandler(handleError)
+    .getCurrentUser();
+}
+
+function showLoginModal() {
+  const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+  loginModal.show();
+}
+
+// Login Form Handler
+document.addEventListener('submit', function(e) {
+  if (e.target.id === 'loginForm') {
+    e.preventDefault();
+    
+    const username = document.getElementById('loginUsername').value;
+    const password = document.getElementById('loginPassword').value;
+    
+    if (!username || !password) {
+      showToast('Username dan password harus diisi', 'error');
+      return;
+    }
+    
+    showLoading('Logging in...', 20);
+    
+    google.script.run
+      .withSuccessHandler(function(response) {
+        hideLoading();
+        
+        if (response.success) {
+          AppState.currentUser = response.user;
+          
+          const loginModal = bootstrap.Modal.getInstance(document.getElementById('loginModal'));
+          loginModal.hide();
+          
+          showToast('Login berhasil! Selamat datang, ' + response.user.name, 'success');
+          
+          initializeApp();
+        } else {
+          showToast('Username atau password salah', 'error');
+        }
+      })
+      .withFailureHandler(function(error) {
+        hideLoading();
+        handleError(error);
+      })
+      .login(username, password);
+  }
+});
+
+// Logout Handler
+function logout() {
+  showLoading('Logging out...', 10);
+  
+  google.script.run
+    .withSuccessHandler(function() {
+      hideLoading();
+      AppState.currentUser = null;
+      showToast('Anda telah logout', 'info');
+      
+      setTimeout(() => {
+        location.reload();
+      }, 1000);
+    })
+    .withFailureHandler(handleError)
+    .logout();
+}
+
+// ========================================
+// APP INITIALIZATION
+// ========================================
+
+function initializeApp() {
+  // Hide login modal if open
+  const loginModal = bootstrap.Modal.getInstance(document.getElementById('loginModal'));
+  if (loginModal) loginModal.hide();
+  
+  // Show main app
+  document.getElementById('appContainer').classList.remove('d-none');
+  
+  // Update user info in UI
+  updateUserInfo();
+  
+  // Load initial page
+  loadPage('dashboard');
+  
+  // Load dashboard data
+  loadDashboardData();
+}
+
+function updateUserInfo() {
+  if (!AppState.currentUser) return;
+  
+  const userName = AppState.currentUser.username || AppState.currentUser.name || 'User';
+  const userRole = AppState.currentUser.role || 'Guru';
+  
+  document.getElementById('sidebarUserName').textContent = userName;
+  document.getElementById('sidebarUserRole').textContent = userRole;
+  document.getElementById('headerUserName').textContent = userName;
+}
+
+// ========================================
+// NAVIGATION & PAGE LOADING
+// ========================================
+
+function setupEventListeners() {
+  // Sidebar navigation
+  document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+    item.addEventListener('click', function(e) {
+      e.preventDefault();
+      const page = this.getAttribute('data-page');
+      loadPage(page);
+      
+      // Close mobile sidebar
+      closeMobileSidebar();
+    });
+  });
+  
+  // Mobile sidebar toggle
+  document.getElementById('headerMenuBtn').addEventListener('click', openMobileSidebar);
+  document.getElementById('sidebarToggle').addEventListener('click', closeMobileSidebar);
+  document.getElementById('sidebarOverlay').addEventListener('click', closeMobileSidebar);
+  
+  // Theme toggle
+  document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+  
+  // Logout buttons
+  document.getElementById('logoutBtn').addEventListener('click', logout);
+  document.getElementById('headerLogoutBtn').addEventListener('click', function(e) {
+    e.preventDefault();
+    logout();
+  });
+  
+  // Global search
+  document.getElementById('globalSearch').addEventListener('input', debounce(function(e) {
+    const query = e.target.value.trim();
+    if (query.length >= 2) {
+      globalSearch(query);
+    }
+  }, 500));
+}
+
+function loadPage(pageName) {
+  AppState.currentPage = pageName;
+  
+  // Update active nav item
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.classList.remove('active');
+    if (item.getAttribute('data-page') === pageName) {
+      item.classList.add('active');
+    }
+  });
+  
+  // Update breadcrumb
+  updateBreadcrumb(pageName);
+  
+  // Show loading
+  showLoading('Memuat halaman...', 20);
+  
+  // Load page content
+  google.script.run
+    .withSuccessHandler(function(html) {
+      hideLoading();
+      document.getElementById('pageContent').innerHTML = html;
+      
+      // Initialize page-specific scripts
+      initializePage(pageName);
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      handleError(error);
+      document.getElementById('pageContent').innerHTML = getErrorPageHTML(error);
+    })
+    .getPageContent(pageName);
+}
+
+function updateBreadcrumb(pageName) {
+  const breadcrumb = document.getElementById('pageBreadcrumb');
+  const pageTitles = {
+    'dashboard': 'Dashboard',
+    'generator': 'Teacher Generator',
+    'master-data': 'Master Data',
+    'perangkat-ajar': 'Perangkat Ajar',
+    'asesmen': 'Asesmen',
+    'jurnal': 'Jurnal',
+    'bank-permainan': 'Bank Permainan',
+    'administrasi': 'Administrasi',
+    'export': 'Export',
+    'backup': 'Backup',
+    'setting': 'Setting',
+    'about': 'Tentang'
+  };
+  
+  const title = pageTitles[pageName] || pageName;
+  
+  breadcrumb.innerHTML = `
+    <li class="breadcrumb-item"><a href="#" onclick="loadPage('dashboard'); return false;">Home</a></li>
+    <li class="breadcrumb-item active" aria-current="page">${title}</li>
+  `;
+}
+
+function initializePage(pageName) {
+  console.log('Initializing page:', pageName);
+  
+  // Page-specific initialization
+  switch(pageName) {
+    case 'dashboard':
+      initDashboardCharts();
+      break;
+    case 'generator':
+      initGeneratorForm();
+      break;
+    case 'master-data':
+      initMasterData();
+      break;
+    // Add more page initializations as needed
+  }
+}
+
+// ========================================
+// DASHBOARD
+// ========================================
+
+function loadDashboardData() {
+  google.script.run
+    .withSuccessHandler(function(data) {
+      AppState.data.dashboard = data;
+      renderDashboard(data);
+    })
+    .withFailureHandler(handleError)
+    .getDashboardData();
+}
+
+function renderDashboard(data) {
+  const pageContent = document.getElementById('pageContent');
+  
+  const statsHtml = `
+    <div class="row g-4 mb-4">
+      <div class="col-xl-3 col-md-6">
+        <div class="stat-card animate__animated animate__fadeInUp">
+          <div class="stat-icon" style="background: rgba(66, 133, 244, 0.1);">
+            <i class="material-icons-round" style="color: var(--primary-color);">menu_book</i>
+          </div>
+          <div class="stat-value">${data.totalModul || 0}</div>
+          <div class="stat-label">Total Modul Ajar</div>
+        </div>
+      </div>
+      <div class="col-xl-3 col-md-6">
+        <div class="stat-card animate__animated animate__fadeInUp" style="animation-delay: 0.1s;">
+          <div class="stat-icon" style="background: rgba(52, 168, 83, 0.1);">
+            <i class="material-icons-round" style="color: var(--success);">people</i>
+          </div>
+          <div class="stat-value">${data.totalGuru || 0}</div>
+          <div class="stat-label">Total Guru</div>
+        </div>
+      </div>
+      <div class="col-xl-3 col-md-6">
+        <div class="stat-card animate__animated animate__fadeInUp" style="animation-delay: 0.2s;">
+          <div class="stat-icon" style="background: rgba(251, 188, 4, 0.1);">
+            <i class="material-icons-round" style="color: var(--warning);">class</i>
+          </div>
+          <div class="stat-value">${data.totalKelas || 0}</div>
+          <div class="stat-label">Total Kelas</div>
+        </div>
+      </div>
+      <div class="col-xl-3 col-md-6">
+        <div class="stat-card animate__animated animate__fadeInUp" style="animation-delay: 0.3s;">
+          <div class="stat-icon" style="background: rgba(234, 67, 53, 0.1);">
+            <i class="material-icons-round" style="color: var(--accent-color);">assignment</i>
+          </div>
+          <div class="stat-value">${data.totalTP || 0}</div>
+          <div class="stat-label">Total Tujuan Pembelajaran</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="row g-4">
+      <div class="col-lg-8">
+        <div class="card animate__animated animate__fadeInUp" style="animation-delay: 0.4s;">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="material-icons-round me-2">trending_up</i>Statistik Perangkat Ajar</span>
+            <select class="form-select form-select-sm" style="width: auto;">
+              <option>Bulan Ini</option>
+              <option>Tahun Ini</option>
+            </select>
+          </div>
+          <div class="card-body">
+            <canvas id="statsChart" height="100"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="card animate__animated animate__fadeInUp" style="animation-delay: 0.5s;">
+          <div class="card-header">
+            <i class="material-icons-round me-2">pie_chart</i>Distribusi Fase
+          </div>
+          <div class="card-body">
+            <canvas id="faseChart" height="200"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="row g-4 mt-4">
+      <div class="col-12">
+        <div class="card animate__animated animate__fadeInUp" style="animation-delay: 0.6s;">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="material-icons-round me-2">history</i>Modul Ajar Terbaru</span>
+            <button class="btn btn-sm btn-outline-primary">Lihat Semua</button>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead>
+                  <tr>
+                    <th>Modul</th>
+                    <th>Kelas</th>
+                    <th>Materi</th>
+                    <th>Tanggal</th>
+                    <th>Status</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${getRecentModulRows(data.recentModul)}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  pageContent.innerHTML = statsHtml;
+  
+  // Initialize charts after DOM is ready
+  setTimeout(() => {
+    initDashboardCharts(data);
+  }, 100);
+}
+
+function getRecentModulRows(moduls) {
+  if (!moduls || moduls.length === 0) {
+    return '<tr><td colspan="6" class="text-center py-4 text-muted">Belum ada modul ajar</td></tr>';
+  }
+  
+  return moduls.slice(0, 5).map(modul => `
+    <tr>
+      <td>
+        <div class="fw-medium">${modul.judul || 'Modul PJOK'}</div>
+        <small class="text-muted">${modul.guru || '-'}</small>
+      </td>
+      <td>Kelas ${modul.kelas || '-'}</td>
+      <td>${modul.materi || '-'}</td>
+      <td>${formatDate(modul.tanggal)}</td>
+      <td><span class="badge bg-success">Selesai</span></td>
+      <td>
+        <button class="btn btn-sm btn-outline-primary" onclick="viewModul('${modul.id}')">
+          <i class="material-icons-round" style="font-size: 16px;">visibility</i>
+        </button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function initDashboardCharts(data) {
+  const statsCtx = document.getElementById('statsChart');
+  const faseCtx = document.getElementById('faseChart');
+  
+  if (statsCtx) {
+    new Chart(statsCtx, {
+      type: 'line',
+      data: {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun'],
+        datasets: [{
+          label: 'Modul Ajar',
+          data: [12, 19, 15, 25, 22, 30],
+          borderColor: '#4285f4',
+          backgroundColor: 'rgba(66, 133, 244, 0.1)',
+          tension: 0.4,
+          fill: true
+        }, {
+          label: 'Asesmen',
+          data: [8, 12, 10, 18, 15, 20],
+          borderColor: '#34a853',
+          backgroundColor: 'rgba(52, 168, 83, 0.1)',
+          tension: 0.4,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top'
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: {
+              color: 'rgba(0,0,0,0.05)'
+            }
+          },
+          x: {
+            grid: {
+              display: false
+            }
+          }
+        }
+      }
+    });
+  }
+  
+  if (faseCtx) {
+    new Chart(faseCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Fase A', 'Fase B', 'Fase C'],
+        datasets: [{
+          data: [35, 40, 25],
+          backgroundColor: ['#4285f4', '#34a853', '#fbbc04'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            position: 'bottom'
+          }
+        }
+      }
+    });
+  }
+}
+
+// ========================================
+// GENERATOR FORM
+// ========================================
+
+function initGeneratorForm() {
+  const pageContent = document.getElementById('pageContent');
+  
+  pageContent.innerHTML = `
+    <div class="animate__animated animate__fadeInUp">
+      <div class="card mb-4">
+        <div class="card-header">
+          <i class="material-icons-round me-2">auto_awesome</i>Teacher Generator - PJOK SD
+        </div>
+        <div class="card-body">
+          <form id="generatorForm">
+            <div class="row g-3">
+              <!-- Identitas -->
+              <div class="col-12">
+                <h6 class="border-bottom pb-2 mb-3"><i class="material-icons-round me-2">info</i>Identitas</h6>
+              </div>
+              
+              <div class="col-md-6">
+                <label class="form-label">Nama Guru</label>
+                <select class="form-select" id="genGuru" required>
+                  <option value="">Pilih Guru</option>
+                </select>
+              </div>
+              
+              <div class="col-md-6">
+                <label class="form-label">Sekolah</label>
+                <select class="form-select" id="genSekolah" required>
+                  <option value="">Pilih Sekolah</option>
+                </select>
+              </div>
+              
+              <div class="col-md-4">
+                <label class="form-label">Kelas</label>
+                <select class="form-select" id="genKelas" required>
+                  <option value="">Pilih Kelas</option>
+                  <option value="1">Kelas 1</option>
+                  <option value="2">Kelas 2</option>
+                  <option value="3">Kelas 3</option>
+                  <option value="4">Kelas 4</option>
+                  <option value="5">Kelas 5</option>
+                  <option value="6">Kelas 6</option>
+                </select>
+              </div>
+              
+              <div class="col-md-4">
+                <label class="form-label">Semester</label>
+                <select class="form-select" id="genSemester" required>
+                  <option value="">Pilih Semester</option>
+                  <option value="1">Semester 1</option>
+                  <option value="2">Semester 2</option>
+                </select>
+              </div>
+              
+              <div class="col-md-4">
+                <label class="form-label">Fase</label>
+                <select class="form-select" id="genFase" required>
+                  <option value="">Pilih Fase</option>
+                  <option value="A">Fase A (Kelas 1-2)</option>
+                  <option value="B">Fase B (Kelas 3-4)</option>
+                  <option value="C">Fase C (Kelas 5-6)</option>
+                </select>
+              </div>
+              
+              <!-- Materi & Pembelajaran -->
+              <div class="col-12 mt-4">
+                <h6 class="border-bottom pb-2 mb-3"><i class="material-icons-round me-2">school</i>Materi & Pembelajaran</h6>
+              </div>
+              
+              <div class="col-md-6">
+                <label class="form-label">Materi</label>
+                <select class="form-select" id="genMateri" required>
+                  <option value="">Pilih Materi</option>
+                </select>
+              </div>
+              
+              <div class="col-md-6">
+                <label class="form-label">Jam Pelajaran</label>
+                <input type="number" class="form-control" id="genJamPelajaran" min="1" max="10" value="2" required>
+              </div>
+              
+              <div class="col-md-4">
+                <label class="form-label">Model Pembelajaran</label>
+                <select class="form-select" id="genModelPembelajaran">
+                  <option value="Problem Based Learning">Problem Based Learning</option>
+                  <option value="Project Based Learning">Project Based Learning</option>
+                  <option value="Discovery Learning">Discovery Learning</option>
+                  <option value="Inquiry Based Learning">Inquiry Based Learning</option>
+                  <option value="Cooperative Learning">Cooperative Learning</option>
+                </select>
+              </div>
+              
+              <div class="col-md-4">
+                <label class="form-label">Pendekatan</label>
+                <select class="form-select" id="genPendekatan">
+                  <option value="Saintifik">Saintifik</option>
+                  <option value="Whole Language">Whole Language</option>
+                  <option value="Contextual Teaching and Learning">Contextual Teaching and Learning</option>
+                  <option value="Deep Learning">Deep Learning</option>
+                </select>
+              </div>
+              
+              <div class="col-md-4">
+                <label class="form-label">Metode</label>
+                <select class="form-select" id="genMetode">
+                  <option value="Demonstrasi">Demonstrasi</option>
+                  <option value="Praktik">Praktik</option>
+                  <option value="Diskusi">Diskusi</option>
+                  <option value="Permainan">Permainan</option>
+                  <option value="Simulasi">Simulasi</option>
+                </select>
+              </div>
+              
+              <!-- Profil Pelajar Pancasila -->
+              <div class="col-12 mt-4">
+                <h6 class="border-bottom pb-2 mb-3"><i class="material-icons-round me-2">favorite</i>Profil Pelajar Pancasila</h6>
+              </div>
+              
+              <div class="col-12">
+                <div class="row g-2">
+                  <div class="col-md-4">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="ppp1" value="Beriman dan Bertakwa">
+                      <label class="form-check-label" for="ppp1">Beriman dan Bertakwa</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="ppp2" value="Berkebinekaan Global">
+                      <label class="form-check-label" for="ppp2">Berkebinekaan Global</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="ppp3" value="Bergotong Royong">
+                      <label class="form-check-label" for="ppp3">Bergotong Royong</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="ppp4" value="Mandiri">
+                      <label class="form-check-label" for="ppp4">Mandiri</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="ppp5" value="Bernalar Kritis">
+                      <label class="form-check-label" for="ppp5">Bernalar Kritis</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="ppp6" value="Kreatif">
+                      <label class="form-check-label" for="ppp6">Kreatif</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Target Peserta Didik -->
+              <div class="col-12 mt-4">
+                <h6 class="border-bottom pb-2 mb-3"><i class="material-icons-round me-2">accessibility</i>Target Peserta Didik</h6>
+              </div>
+              
+              <div class="col-md-6">
+                <label class="form-label">Karakteristik Peserta Didik</label>
+                <textarea class="form-control" id="genKarakteristik" rows="3" placeholder="Deskripsikan karakteristik peserta didik..."></textarea>
+              </div>
+              
+              <div class="col-md-6">
+                <label class="form-label">Media Pembelajaran</label>
+                <textarea class="form-control" id="genMedia" rows="3" placeholder="Sebutkan media yang akan digunakan..."></textarea>
+              </div>
+            </div>
+            
+            <div class="row mt-4">
+              <div class="col-12">
+                <button type="submit" class="btn gradient-btn btn-lg w-100">
+                  <i class="material-icons-round me-2">auto_awesome</i>GENERATE PERANGKAT PEMBELAJARAN
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Load dropdown data
+  loadGeneratorDropdowns();
+  
+  // Form submit handler
+  document.getElementById('generatorForm').addEventListener('submit', handleGenerate);
+}
+
+function loadGeneratorDropdowns() {
+  google.script.run
+    .withSuccessHandler(function(data) {
+      // Populate guru dropdown
+      const guruSelect = document.getElementById('genGuru');
+      if (data.guru && data.guru.length > 0) {
+        data.guru.forEach(g => {
+          const option = document.createElement('option');
+          option.value = g.id;
+          option.textContent = g.nama;
+          guruSelect.appendChild(option);
+        });
+      }
+      
+      // Populate sekolah dropdown
+      const sekolahSelect = document.getElementById('genSekolah');
+      if (data.sekolah && data.sekolah.length > 0) {
+        data.sekolah.forEach(s => {
+          const option = document.createElement('option');
+          option.value = s.id;
+          option.textContent = s.nama;
+          sekolahSelect.appendChild(option);
+        });
+      }
+      
+      // Populate materi dropdown based on selected kelas
+      document.getElementById('genKelas').addEventListener('change', function() {
+        const kelas = this.value;
+        loadMateriByKelas(kelas);
+      });
+    })
+    .withFailureHandler(handleError)
+    .getGeneratorDropdownData();
+}
+
+function loadMateriByKelas(kelas) {
+  if (!kelas) return;
+  
+  const materiSelect = document.getElementById('genMateri');
+  materiSelect.innerHTML = '<option value="">Memuat materi...</option>';
+  
+  google.script.run
+    .withSuccessHandler(function(materiList) {
+      materiSelect.innerHTML = '<option value="">Pilih Materi</option>';
+      
+      if (materiList && materiList.length > 0) {
+        materiList.forEach(m => {
+          const option = document.createElement('option');
+          option.value = m.id;
+          option.textContent = m.nama;
+          materiSelect.appendChild(option);
+        });
+      }
+    })
+    .withFailureHandler(handleError)
+    .getMateriByKelas(kelas);
+}
+
+function handleGenerate(e) {
+  e.preventDefault();
+  
+  // Collect form data
+  const formData = {
+    guruId: document.getElementById('genGuru').value,
+    sekolahId: document.getElementById('genSekolah').value,
+    kelas: document.getElementById('genKelas').value,
+    semester: document.getElementById('genSemester').value,
+    fase: document.getElementById('genFase').value,
+    materiId: document.getElementById('genMateri').value,
+    jamPelajaran: parseInt(document.getElementById('genJamPelajaran').value),
+    modelPembelajaran: document.getElementById('genModelPembelajaran').value,
+    pendekatan: document.getElementById('genPendekatan').value,
+    metode: document.getElementById('genMetode').value,
+    profilPelajarPancasila: Array.from(document.querySelectorAll('input[id^="ppp"]:checked')).map(cb => cb.value),
+    karakteristik: document.getElementById('genKarakteristik').value,
+    media: document.getElementById('genMedia').value
+  };
+  
+  // Validate required fields
+  if (!formData.guruId || !formData.sekolahId || !formData.kelas || 
+      !formData.semester || !formData.fase || !formData.materiId) {
+    showToast('Mohon lengkapi semua field yang wajib diisi', 'error');
+    return;
+  }
+  
+  // Show progress dialog
+  showGenerateProgress();
+  
+  // Call generate function
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideGenerateProgress();
+      
+      if (result.success) {
+        showToast('Perangkat pembelajaran berhasil dibuat!', 'success');
+        
+        // Show result options
+        showGenerateResult(result.data);
+      } else {
+        showToast('Gagal membuat perangkat: ' + (result.message || 'Unknown error'), 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideGenerateProgress();
+      handleError(error);
+    })
+    .generatePerangkatPembelajaran(formData);
+}
+
+function showGenerateProgress() {
+  const steps = [
+    'Mengumpulkan data...',
+    'Menyusun CP dan TP...',
+    'Membuat ATP...',
+    'Menyusun KKTP...',
+    'Membuat Modul Ajar...',
+    'Menyiapkan Asesmen...',
+    'Menyusun LKPD...',
+    'Finalisasi dokumen...'
+  ];
+  
+  let currentStep = 0;
+  
+  Swal.fire({
+    title: 'Sedang Membuat Perangkat Pembelajaran',
+    html: `
+      <div class="text-start">
+        <div class="progress mb-3" style="height: 8px;">
+          <div class="progress-bar progress-bar-striped progress-bar-animated" 
+               role="progressbar" 
+               id="generateProgressBar" 
+               style="width: 0%"></div>
+        </div>
+        <p id="generateStepText" class="mb-0">${steps[0]}</p>
+        <small class="text-muted">Proses ini mungkin memakan waktu beberapa menit</small>
+      </div>
+    `,
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    showConfirmButton: false,
+    didOpen: () => {
+      const interval = setInterval(() => {
+        currentStep++;
+        if (currentStep < steps.length) {
+          const progress = ((currentStep + 1) / steps.length) * 100;
+          document.getElementById('generateProgressBar').style.width = progress + '%';
+          document.getElementById('generateStepText').textContent = steps[currentStep];
+        }
+      }, 2000);
+      
+      Swal.getPopup().setAttribute('data-interval', interval);
+    }
+  });
+}
+
+function hideGenerateProgress() {
+  const popup = document.querySelector('.swal2-popup[data-interval]');
+  if (popup) {
+    const interval = popup.getAttribute('data-interval');
+    clearInterval(parseInt(interval));
+  }
+  Swal.close();
+}
+
+function showGenerateResult(data) {
+  Swal.fire({
+    title: '✨ Berhasil!',
+    text: 'Perangkat pembelajaran telah selesai dibuat',
+    icon: 'success',
+    showCancelButton: true,
+    confirmButtonText: '<i class="material-icons-round me-2">visibility</i>Lihat Dokumen',
+    cancelButtonText: '<i class="material-icons-round me-2">close</i>Tutup',
+    confirmButtonClass: 'gradient-btn',
+    cancelButtonClass: 'btn btn-outline-secondary'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      loadPage('perangkat-ajar');
+    }
+  });
+}
+
+// ========================================
+// UTILITY FUNCTIONS
+// ========================================
+
+function showLoading(message, progress = 0) {
+  AppState.isLoading = true;
+  
+  const overlay = document.getElementById('loadingOverlay');
+  const text = document.getElementById('loadingText');
+  const progressBar = document.getElementById('loadingProgressBar');
+  
+  text.textContent = message;
+  progressBar.style.width = progress + '%';
+  
+  overlay.classList.remove('d-none');
+}
+
+function hideLoading() {
+  AppState.isLoading = false;
+  
+  const overlay = document.getElementById('loadingOverlay');
+  overlay.classList.add('d-none');
+}
+
+function showToast(message, type = 'info') {
+  const toastEl = document.getElementById('liveToast');
+  const toastMessage = document.getElementById('toastMessage');
+  
+  // Set color based on type
+  const colors = {
+    success: 'bg-success',
+    error: 'bg-danger',
+    warning: 'bg-warning',
+    info: 'bg-primary'
+  };
+  
+  toastEl.className = `toast align-items-center text-white border-0 ${colors[type] || colors.info}`;
+  toastMessage.textContent = message;
+  
+  const toast = new bootstrap.Toast(toastEl);
+  toast.show();
+}
+
+function handleError(error) {
+  console.error('Error:', error);
+  
+  let message = 'Terjadi kesalahan pada sistem';
+  
+  if (typeof error === 'string') {
+    message = error;
+  } else if (error && error.message) {
+    message = error.message;
+  }
+  
+  showToast(message, 'error');
+  
+  Swal.fire({
+    icon: 'error',
+    title: 'Error',
+    text: message,
+    confirmButtonText: 'OK'
+  });
+}
+
+function toggleTheme() {
+  AppState.theme = AppState.theme === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', AppState.theme);
+  
+  const icon = document.querySelector('#themeToggle i');
+  icon.textContent = AppState.theme === 'dark' ? 'light_mode' : 'dark_mode';
+  
+  localStorage.setItem('theme', AppState.theme);
+}
+
+function initTheme() {
+  const savedTheme = localStorage.getItem('theme') || 'light';
+  AppState.theme = savedTheme;
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  
+  const icon = document.querySelector('#themeToggle i');
+  icon.textContent = savedTheme === 'dark' ? 'light_mode' : 'dark_mode';
+}
+
+function openMobileSidebar() {
+  document.getElementById('sidebar').classList.add('show');
+  document.getElementById('sidebarOverlay').classList.add('show');
+}
+
+function closeMobileSidebar() {
+  document.getElementById('sidebar').classList.remove('show');
+  document.getElementById('sidebarOverlay').classList.remove('show');
+}
+
+function globalSearch(query) {
+  console.log('Searching:', query);
+  // Implement global search functionality
+}
+
+function formatDate(dateString) {
+  if (!dateString) return '-';
+  
+  const date = new Date(dateString);
+  const options = { day: 'numeric', month: 'short', year: 'numeric' };
+  return date.toLocaleDateString('id-ID', options);
+}
+
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+function getErrorPageHTML(error) {
+  return `
+    <div class="text-center py-5">
+      <i class="material-icons-round" style="font-size: 64px; color: var(--error);">error_outline</i>
+      <h4 class="mt-3">Terjadi Kesalahan</h4>
+      <p class="text-muted">${error.message || error}</p>
+      <button class="btn gradient-btn mt-3" onclick="location.reload()">
+        <i class="material-icons-round me-2">refresh</i>Refresh Halaman
+      </button>
+    </div>
+  `;
+}
+
+// Export functions for use in HTML templates
+window.loadPage = loadPage;
+window.logout = logout;
+window.showToast = showToast;
+window.viewModul = function(id) {
+  console.log('View modul:', id);
+  // Implement view modul functionality
+};
