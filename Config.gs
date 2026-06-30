@@ -1,16 +1,16 @@
 /**
- * Teacher Generator PJOK SD
+ * Teacher Generator - Kurikulum Merdeka Deep Learning
  * File: Config.gs
  * Deskripsi: Konfigurasi aplikasi, constants, dan settings global
- * Author: Senior Google Apps Script Developer
- * Version: 1.0.0
+ * Author: Senior Development Team
+ * Version: 2.0.0
  */
 
 // --- KONSTANTA APLIKASI ---
 
 const APP_CONFIG = {
-  NAME: 'Teacher Generator PJOK SD',
-  VERSION: '1.0.0',
+  NAME: 'Teacher Generator - Kurikulum Merdeka',
+  VERSION: '2.0.0',
   AUTHOR: 'Senior Development Team',
   COPYRIGHT: '2024',
   
@@ -21,26 +21,28 @@ const APP_CONFIG = {
   
   // Sheet Names
   SHEETS: {
-    USERS: 'USERS',
+    SETTINGS: 'SETTINGS',
     SEKOLAH: 'SEKOLAH',
     GURU: 'GURU',
+    KELAS: 'KELAS',
     TAHUN_AJARAN: 'TAHUN_AJARAN',
     SEMESTER: 'SEMESTER',
     FASE: 'FASE',
+    MAPEL: 'MAPEL',
     CP: 'CP',
     TP: 'TP',
-    MATERI: 'MATERI',
     MODUL_AJAR: 'MODUL_AJAR',
+    RPP: 'RPP',
     ASSESMEN: 'ASSESMEN',
     KKTP: 'KKTP',
-    BANK_SOAL: 'BANK_SOAL',
-    BANK_PERMAINAN: 'BANK_PERMAINAN',
+    DIMENSI_PROFIL: 'DIMENSI_PROFIL',
+    KEGIATAN: 'KEGIATAN',
     MEDIA: 'MEDIA',
+    SUMBER_BELAJAR: 'SUMBER_BELAJAR',
     JURNAL: 'JURNAL',
-    LOG: 'LOG',
+    LOG_AKTIVITAS: 'LOG_AKTIVITAS',
     BACKUP: 'BACKUP',
-    TEMPLATE: 'TEMPLATE',
-    SETTINGS: 'SETTINGS'
+    TEMPLATE: 'TEMPLATE'
   },
   
   // User Roles
@@ -64,103 +66,134 @@ const APP_CONFIG = {
     { id: 2, nama: 'Semester 2 (Genap)', kode: 'SEM2' }
   ],
   
-  // Model Pembelajaran PJOK
-  MODEL_PEMBELAJARAN: [
-    'Direct Instruction',
-    'Discovery Learning',
-    'Problem Based Learning',
-    'Project Based Learning',
-    'Cooperative Learning',
-    'Teaching Games for Understanding (TGfU)',
-    'Sport Education Model',
-    'Personalized System of Instruction'
+  // Dimensi Profil Lulusan (Deep Learning)
+  DIMENSI_PROFIL: [
+    { 
+      id: 'bernalar_kritis', 
+      nama: 'Bernalar Kritis', 
+      elemen: ['Memperoleh dan memproses informasi', 'Menganalisis informasi', 'Mengevaluasi dan argumentasi', 'Memecahkan masalah'],
+      deskripsi: 'Siswa mampu berpikir kritis dalam menghadapi masalah dan mengambil keputusan berdasarkan data'
+    },
+    { 
+      id: 'kreatif', 
+      nama: 'Kreatif', 
+      elemen: ['Menghasilkan gagasan orisinal', 'Menghasilkan karya orisinal', 'Fleksibilitas berpikir'],
+      deskripsi: 'Siswa mampu menghasilkan ide-ide kreatif dan solusi inovatif'
+    },
+    { 
+      id: 'gotong_royong', 
+      nama: 'Gotong Royong', 
+      elemen: ['Kolaborasi', 'Kepedulian', 'Berbagi'],
+      deskripsi: 'Siswa mampu bekerja sama dalam tim dan saling membantu'
+    },
+    { 
+      id: 'mandiri', 
+      nama: 'Mandiri', 
+      elemen: ['Regulasi diri', 'Tanggung jawab proses belajar'],
+      deskripsi: 'Siswa mampu belajar secara mandiri dan bertanggung jawab'
+    },
+    { 
+      id: 'berkebinekaan_global', 
+      nama: 'Berkebinekaan Global', 
+      elemen: ['Mengenal dan menghargai budaya', 'Komunikasi interkultural', 'Refleksi kebinekaan'],
+      deskripsi: 'Siswa menghargai keberagaman dan berpikir global'
+    },
+    { 
+      id: 'komunikasi', 
+      nama: 'Komunikasi', 
+      elemen: ['Memahami bahasa', 'Menyampaikan pesan efektif'],
+      deskripsi: 'Siswa mampu berkomunikasi secara efektif'
+    }
   ],
   
-  // Metode Pembelajaran PJOK
+  // Model Pembelajaran (Deep Learning Approach)
+  MODEL_PEMBELAJARAN: [
+    'Discovery Learning',
+    'Problem Based Learning (PBL)',
+    'Project Based Learning (PjBL)',
+    'Inquiry Based Learning',
+    'Cooperative Learning',
+    'Contextual Teaching and Learning (CTL)',
+    'Differentiated Instruction',
+    'Universal Design for Learning (UDL)'
+  ],
+  
+  // Metode Pembelajaran
   METODE_PEMBELAJARAN: [
-    'Ceramah Interaktif',
+    'Diskusi Kelompok',
+    'Presentasi',
     'Demonstrasi',
     'Praktik Langsung',
-    'Drill and Practice',
-    'Permainan Kecil',
-    'Turnamen',
-    'Diskusi Kelompok',
-    'Peer Teaching'
+    'Simulasi/Role Play',
+    'Studi Kasus',
+    'Problem Solving',
+    'Peer Teaching',
+    'Flipped Classroom',
+    'Blended Learning'
   ],
   
-  // Media Pembelajaran PJOK
+  // Media Pembelajaran
   MEDIA_PEMBELAJARAN: [
-    'Bola berbagai ukuran',
-    'Matras',
-    'Cone/Marker',
-    'Tali/Skiping',
-    'Ring/Hoop',
     'Video Pembelajaran',
     'Gambar/Poster',
     'Audio/Musik',
     'Aplikasi Digital',
-    'Alat Tradisional'
-  ],
-  
-  // Profil Pelajar Pancasila
-  PROFIL_PANCASILA: [
-    'Beriman, Bertakwa kepada Tuhan YME, dan Berakhlak Mulia',
-    'Berkebinekaan Global',
-    'Bergotong Royong',
-    'Mandiri',
-    'Bernalar Kritis',
-    'Kreatif'
-  ],
-  
-  // Target Peserta Didik
-  TARGET_PESERTA_DIDIK: [
-    'Reguler/Tipikal',
-    'Kesulitan Belajar',
-    'Cerdas Istimewa',
-    'Berbakat Istimewa',
-    'Disabilitas Fisik',
-    'Disabilitas Mental'
+    'E-Book/Modul Digital',
+    'Alat Peraga Fisik',
+    'Interactive Whiteboard',
+    'Quiz Interaktif',
+    'Virtual Lab',
+    'Augmented Reality (AR)'
   ],
   
   // Jenis Asesmen
   JENIS_ASSESMEN: [
-    'Diagnostik',
-    'Formatif',
-    'Sumatif'
+    { id: 'diagnostik', nama: 'Asesmen Diagnostik', tujuan: 'Mengetahui kemampuan awal siswa' },
+    { id: 'formatif', nama: 'Asesmen Formatif', tujuan: 'Memantau proses belajar dan memberikan feedback' },
+    { id: 'sumatif', nama: 'Asesmen Sumatif', tujuan: 'Mengukur pencapaian hasil belajar' }
   ],
   
-  // Kategori Bank Permainan
-  KATEGORI_PERMAINAN: [
-    'Permainan Bola Besar',
-    'Permainan Bola Kecil',
-    'Atletik',
-    'Senam Lantai',
-    'Senam Irama',
-    'Aktivitas Air',
-    'Bela Diri',
-    'Kebugaran Jasmani',
-    'Ice Breaking',
-    'Literasi Gerak',
-    'Numerasi Gerak'
+  // Teknik Penilaian
+  TEKNIK_PENILAIAN: [
+    'Observasi',
+    'Tes Tertulis',
+    'Tes Lisan',
+    'Unjuk Kerja/Performance',
+    'Portofolio',
+    'Proyek',
+    'Produk',
+    'Self Assessment',
+    'Peer Assessment'
   ],
   
-  // Level Kognitif Soal
+  // Level Kognitif (Bloom Taxonomy Revised)
   LEVEL_KOGNITIF: [
-    'C1 - Mengingat',
-    'C2 - Memahami',
-    'C3 - Menerapkan',
-    'C4 - Menganalisis',
-    'C5 - Mengevaluasi',
-    'C6 - Mencipta'
+    { level: 'C1', nama: 'Mengingat', kata_kerja: ['menyebutkan', 'mendefinisikan', 'mengidentifikasi'] },
+    { level: 'C2', nama: 'Memahami', kata_kerja: ['menjelaskan', 'menguraikan', 'merangkum'] },
+    { level: 'C3', nama: 'Menerapkan', kata_kerja: ['menerapkan', 'menggunakan', 'melaksanakan'] },
+    { level: 'C4', nama: 'Menganalisis', kata_kerja: ['menganalisis', 'membandingkan', 'mengorganisasi'] },
+    { level: 'C5', nama: 'Mengevaluasi', kata_kerja: ['menilai', 'mengevaluasi', 'mengkritisi'] },
+    { level: 'C6', nama: 'Mencipta', kata_kerja: ['menciptakan', 'merancang', 'mengembangkan'] }
   ],
   
   // Status Modul Ajar
   STATUS_MODUL: [
-    'Draft',
-    'Review',
-    'Approved',
-    'Published',
-    'Archived'
+    { id: 'draft', nama: 'Draft', warna: '#FFA500' },
+    { id: 'review', nama: 'Review', warna: '#2196F3' },
+    { id: 'approved', nama: 'Approved', warna: '#4CAF50' },
+    { id: 'published', nama: 'Published', warna: '#9C27B0' },
+    { id: 'archived', nama: 'Archived', warna: '#9E9E9E' }
+  ],
+  
+  // Target Peserta Didik (Diferensiasi)
+  TARGET_PESERTA_DIDIK: [
+    'Reguler/Tipikal',
+    'Kesulitan Belajar (Learning Disability)',
+    'Cerdas Istimewa (Gifted)',
+    'Berbakat Istimewa (Talented)',
+    'Disabilitas Fisik',
+    'Disabilitas Mental',
+    'Slow Learner'
   ]
 };
 
