@@ -1,1 +1,26 @@
-Nothing needs to be ignored based on the provided file changes. The only added file 'AI.gs' appears to be a source code file that should be tracked in version control.
+```
+# Google Apps Script specific ignores
+*.gs.bak
+*.gs~
+*.bak
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Environment
+.env
+.env.local
+.env.*
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+```
